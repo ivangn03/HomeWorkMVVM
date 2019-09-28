@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Controls;
@@ -14,10 +16,11 @@ using WpfHomework_02.Repositories;
 
 namespace WpfHomework_02.ViewModels
 {
-    public class MainViewModel
+    public class MainViewModel : INotifyPropertyChanged
     {
+        private ObservableCollection<Student> _students;
         #region Properties
-        public ObservableCollection<Student> Students { get; set; }
+        public ObservableCollection<Student> Students { get => _students; set { _students = value; Notify(); } }
         public Student SelectedStudent { get; set; }
         #endregion
         #region Commands
@@ -30,36 +33,39 @@ namespace WpfHomework_02.ViewModels
         public MainViewModel()
         {
             IKernel kernel = new StandardKernel(new MyModule());
-            IRepository<Student>  repository = kernel.Get<IRepository<Student>>();
+            IRepository<Student> repository = kernel.Get<IRepository<Student>>();
             Students = new ObservableCollection<Student>(repository.GetAll());
-            AddCommand = new RelayCommand(x => {
+            AddCommand = new RelayCommand(x =>
+            {
                 Student student = new Student { Name = "", LastName = "", Group = "", Year = 2019 };
                 Students.Add(student);
                 repository.Create(student);
             });
             ReversSortCommand = new RelayCommand(x =>
             {
-               for(int i = 0; i < Students.Count; i++)
-                {
-                    Students.Move(Students.Count - 1, i);
-                }
+                Students = new ObservableCollection<Student>(Students.Reverse());
             });
-            SortCommand = new RelayCommand(x => {
-                
+            SortCommand = new RelayCommand(x =>
+            {
                 string sort_type = (string)x;
-                List<Student> sortedList = Students.OrderBy(sort => sort.GetType().GetProperty(sort_type).GetValue(sort, null)).ToList<Student>();
-                for (int i = 0; i < Students.Count; i++)
-                {
-                    Students.Move(Students.IndexOf(sortedList[i]),i);
-                }             
+                Students = new ObservableCollection<Student>(Students.OrderBy(sort => sort.GetType().GetProperty(sort_type).GetValue(sort, null)));
+             
             });
             CloseAndSaveCommand = new RelayCommand(x => repository.SaveAll());
             RemoveCommand = new RelayCommand(
-                x => {
+                x =>
+                {
                     repository.Delete(((Student)x).Id);
                     Students.Remove((Student)x);
-                }, x=> Students.Count > 0
+                }, x => Students.Count > 0
                 );
         }
+        #region Notify
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void Notify([CallerMemberName]string propertyName = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        #endregion
     }
 }
